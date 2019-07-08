@@ -272,7 +272,8 @@ class Chessgame():
         self.current_piece = None
         while 1 == 1:
 
-            select = input('What piece would you like to move ?   (select piece from coordinates or 0 to exit)')
+            select = input('What piece would you like to move ?\n'
+                           '(select piece from coordinates or 0 to exit)')
             if select == '0': exit()
             if select not in self._current_state_raw.keys():
                 print('Invalid cordinates')
@@ -286,10 +287,12 @@ class Chessgame():
     def move_selector(self):
         potential_moves = self.current_piece.move_range(self._current_state_raw)
         while 1 == 1:
-            move = input('Select where you would like to move this piece (or enter 0 to exit)')
+            move = input('Select where you would like to move this piece \n'
+                         'or imput \'moves\' to show possible moves ')
             if move == '0':
-                leave = 0
                 exit(print('Thanks for playing!'))
+            if move == 'moves':
+                print(s.__str__(True, potential_moves))
             elif move not in potential_moves:
                 print('This is not a valid destination')
             else:
@@ -318,13 +321,32 @@ class Chessgame():
                 elif leave == 0:
                     return
 
-
-
-
-
-    def __str__(self):
+    def __str__(self, showmoves=False, moves=[]):
         '''This just builds the actual board seen by the 'end-user' '''
         rep_board = ''
+        if showmoves == True:  # Outputs the board with the avalible moves for a given piece highlighted
+            print(moves)
+            for dicts in self.current:
+                rep_board += (
+                                     "\n" + Back.LIGHTBLACK_EX + "|¯¯¯¯¯¯¯¯¯||¯¯¯¯¯¯¯¯¯||¯¯¯¯¯¯¯¯¯||¯¯¯¯¯¯¯¯¯||¯¯¯¯¯¯¯¯¯||¯¯¯¯¯¯¯¯¯||¯¯¯¯¯¯¯¯¯||¯¯¯¯¯¯¯¯¯|" + Back.RESET + "\n" + Back.LIGHTBLACK_EX + '|' + Back.RESET +
+                                     (Back.LIGHTBLACK_EX + "||").join([(Back.MAGENTA if k in moves else
+                                                                        Back.LIGHTBLACK_EX if k != self.current_piece.position
+                                                                        else Fore.YELLOW + Back.LIGHTBLACK_EX) + ' ' + k
+                                                                       + ': ' +
+                                                                       (Back.MAGENTA if k in moves else
+                                                                        Back.LIGHTBLACK_EX) + Style.BRIGHT + (
+                                                                           Fore.YELLOW if k == (
+                                                                               self.current_piece).position else
+                                                                           Fore.LIGHTWHITE_EX + Style.BRIGHT if i.owner == 'White'
+                                                                           else Fore.BLACK + Style.BRIGHT if i.owner == 'Black'
+                                                                           else Fore.RESET) + str(i)
+                                                                       + ('   ' if str(i) == ' ' else '')
+                                                                       + Fore.RESET for k, i in
+                                                                       dicts.items()]) + Back.LIGHTBLACK_EX + "|" + Back.RESET
+                                     + "\n" + Back.LIGHTBLACK_EX + "|_________||_________||_________||_________||_________||_________||_________||_________|") + Back.RESET + '\n'
+            return rep_board
+
+
 
         for dicts in self.current:
             rep_board += (
@@ -344,7 +366,13 @@ class Chessgame():
 
 s = Chessgame()
 
+# uncomment to run through the entire game
+# s.play_game()
+
+
 # testing stuff
 print(s)
-
-s.play_game()
+s._current_state_raw['b2'] = s.Bishop(
+    'White')  # ignore that the output says its a pawn, i just didnt update the for show
+s.current_piece = (s._current_state_raw['b2'])
+s.move_selector()
