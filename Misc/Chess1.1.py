@@ -15,6 +15,7 @@ class Chessgame():
         self._board_setup()  # sets up the starting board
         self._position_setup()  # initiallizes the chess piece objects
         self.king_check = {'Black': [], 'White': []}
+        self.turn_count = 0
 
     class Dummy():
         def __init__(self):
@@ -267,6 +268,60 @@ class Chessgame():
         for i in range(0, len(y)):
             self.board.append([y[i] + str(x) for x in range(1, 9)])
 
+    def piece_selector(self, turn_ID):
+        self.current_piece = None
+        while 1 == 1:
+
+            select = input('What piece would you like to move ?   (select piece from coordinates or 0 to exit)')
+            if select == '0': exit()
+            if select not in self._current_state_raw.keys():
+                print('Invalid cordinates')
+                continue
+            elif (self._current_state_raw[select]).owner != turn_ID:
+                print('This is not you piece!')
+            else:
+                self.current_piece = self._current_state_raw[select]
+                return
+
+    def move_selector(self):
+        potential_moves = self.current_piece.move_range(self._current_state_raw)
+        while 1 == 1:
+            move = input('Select where you would like to move this piece (or enter 0 to exit)')
+            if move == '0':
+                leave = 0
+                exit(print('Thanks for playing!'))
+            elif move not in potential_moves:
+                print('This is not a valid destination')
+            else:
+                confirm = input('Confirm move' + (self.current_piece).position + '--->' + move)
+                if 'y' in confirm:
+                    self._current_state_raw[move] = self.current_piece
+                    self._current_state_raw[(self.current_piece).position] = self.Dummy()
+                    for dict in self.current:
+                        for x in dict.keys(): dict[x] = self._current_state_raw[x]
+                    print(self)
+                    return
+                    # this will likely be how changes are incorporated
+
+    def play_game(self):
+        while 1 == 1:
+            # TODO impliment actual functionality to exit
+            players = ['White', 'Black']
+            for i in range(0, 2):
+                leave = 1
+                current_player = players[i]
+                print('----------' + current_player + '\'s Turn!' + '----------')
+                if leave != 0:
+                    leave = self.piece_selector(current_player)
+                if leave != 0:
+                    leave = self.move_selector()
+                elif leave == 0:
+                    return
+
+
+
+
+
     def __str__(self):
         '''This just builds the actual board seen by the 'end-user' '''
         rep_board = ''
@@ -291,15 +346,5 @@ s = Chessgame()
 
 # testing stuff
 print(s)
-print(s.current)
-s._current_state_raw['d4'] = Chessgame.King('White')
-print(str(s._current_state_raw['d4']))
-for dict in s.current:
-    if 'd4' in dict.keys(): dict['d4'] = s._current_state_raw['d4']
-print(s)
-print((s._current_state_raw['d4']).move_range(s._current_state_raw))
-w = (s._current_state_raw['h8']).owner
-print(w)
 
-s._king_check_function('White')
-print(s.king_check['White'])
+s.play_game()
