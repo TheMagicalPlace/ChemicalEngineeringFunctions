@@ -118,3 +118,40 @@ intt.outlet_flow_rates([.9, .9])
 print(intt.fenske_equation(), 'Nmin')
 intt.underwood_equation(1)
 intt.is_this_class_II()
+
+
+def handle(func, success=None, failure=None, exception1=0, exception2=0, exception3=0, exception4=0, *args):
+    class err():
+        def __init__(self, func):
+            self.value = func
+            pass
+
+        def __str__(self):
+            return repr(self.value)
+
+    e = err(func)
+    print((str((e.value))))
+
+    if 1 == 2:
+        if func().type != exception1:
+            print('yeet')
+            return failure(func, exception1)
+        if func == exception2:
+            return failure(func, exception2)
+        if func == exception3:
+            print('yeet')
+            return failure(func, exception3)
+        if func == exception3:
+            failure(func, exception4)
+        else:
+            success(func, func)
+
+    def success(func, val):
+        pass
+
+    def failure(func, exception):
+        pass
+
+
+onedivzero = lambda: 1 / 0
+handle(onedivzero)
