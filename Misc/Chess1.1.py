@@ -25,7 +25,11 @@ class Chessgame():
             return ' '
 
     class Piece():
+        ''' Each subclass of the piece object has it\'s own function for checking the movment range against the
+    imputted move. Currently the way most of them work is by testing every appicable string combination for a given piece
+    (i.e. a-z,5 or a,1-5 for a rook) and discarding the ones that are invalid
 
+    '''
         def __init__(self, playerID):
             self.owner = playerID
             self.piece = 'Undef'
