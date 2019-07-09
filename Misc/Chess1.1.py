@@ -1,7 +1,10 @@
 from colorama import init, Fore, Back, Style
 
+# TODO fix the forward movment of a pawn being considered dangerous for the king
+# TODO allow the king to attack other pieces to escape
+# TODO fix other king being taken over in the event of a checkmate
 init(autoreset=True)
-
+import random as r
 
 class Chessgame():
     Names = ['Rook', 'Knight', 'Bishop',
@@ -16,11 +19,12 @@ class Chessgame():
         self._position_setup()  # initiallizes the chess piece objects
         self.king_check = {'Black': [], 'White': []}
         self.turn_count = 0
+        self.pseudoai = 'no'
 
     class Dummy():
         def __init__(self):
             self.owner = 'None'
-
+            self.piece = "Not a Piece"
         def __str__(self):
             return ' '
 
@@ -45,40 +49,38 @@ class Chessgame():
             super().__init__(playerID)
             self.piece = 'Pwn'
 
-        def __str__(self):
-            return super().__str__()
-
         def getpos(self, current_state_raw):
             super().getpos(current_state_raw)
 
         def move_range(self, current_state_raw):
-            valid_moves = []
             self.getpos(current_state_raw)
-
             if self.owner == 'Black':
                 foreward = chr(ord(self.position[0]) - 1) + self.position[1]
                 if foreward[0] not in 'abcdefgh' or foreward[1] not in '12345678' \
-                        or current_state_raw[foreward].owner != 'None':
+                        or (current_state_raw[foreward]).owner != 'None':
                     foreward = -1
+                avbmove = foreward if foreward != -1 else ['00']
+                potatck = [chr(ord(self.position[0]) - 1) + str(int(self.position[1]) + 1),
+                           chr(ord(self.position[0]) - 1) + str(int(self.position[1]) - 1)]
             if self.owner == 'White':
                 foreward = chr(ord(self.position[0]) + 1) + self.position[1]
                 if foreward[0] not in 'abcdefgh' or foreward[1] not in '12345678' \
-                        or current_state_raw[foreward].owner != 'None':
+                        or (current_state_raw[foreward]).owner != 'None':
                     foreward = -1
-            avbmove = foreward if foreward != -1 else -1
-            potatck = [chr(ord(self.position[0]) - 1) + str(int(self.position[1]) + 1),
-                       chr(ord(self.position[0]) - 1) + str(int(self.position[1]) - 1)]
+                avbmove = foreward if foreward != -1 else ['00']
+                potatck = [chr(ord(self.position[0]) + 1) + str(int(self.position[1]) + 1),
+                           chr(ord(self.position[0]) + 1) + str(int(self.position[1]) - 1)]
+
             potatck = [p for p in potatck if p[0] in 'abcdefgh' and p[1] in '12345678']
-            return [p for p in potatck if (current_state_raw[p]).owner != self.owner] + [avbmove]
+            potatck = [p for p in potatck if
+                       (current_state_raw[p]).owner != self.owner and (current_state_raw[p]).owner != 'None']
+            if avbmove != ['00']: potatck.append(avbmove)
             return potatck
 
     class Rook(Piece):
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Twr'
-
-        def __str__(self):
-            return super().__str__()
 
         def getpos(self, current_state_raw):
             super().getpos(current_state_raw)
@@ -87,7 +89,6 @@ class Chessgame():
             moves = []
             self.getpos(current_state_raw)
             e, f, g, h = self.position, self.position, self.position, self.position
-            self.getpos(current_state_raw)
             for i in range(1, 8):
                 e = (chr(ord(self.position[0]) + i) + str(int(self.position[1]))) if e != -1 else -1
                 f = (chr(ord(self.position[0]) - i) + str(int(self.position[1]))) if f != -1 else -1
@@ -108,9 +109,6 @@ class Chessgame():
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Bsp'
-
-        def __str__(self):
-            return super().__str__()
 
         def getpos(self, current_state_raw):
             super().getpos(current_state_raw)
@@ -145,24 +143,29 @@ class Chessgame():
             super().__init__(playerID)
             self.piece = 'Knt'
 
-        def __str__(self):
-            return super().__str__()
-
         def getpos(self, current_state_raw):
             super().getpos(current_state_raw)
 
         def move_range(self, current_state_raw):
             moves = []
             self.getpos(current_state_raw)
-            return [self.position]
+            potmoves = \
+                [chr(ord(self.position[0]) + 2) + str(int(self.position[1]) - 1),
+                 chr(ord(self.position[0]) + 2) + str(int(self.position[1]) + 1),
+                 chr(ord(self.position[0]) - 2) + str(int(self.position[1]) - 1),
+                 chr(ord(self.position[0]) - 2) + str(int(self.position[1]) + 1),
+                 chr(ord(self.position[0]) + 1) + str(int(self.position[1]) - 2),
+                 chr(ord(self.position[0]) - 1) + str(int(self.position[1]) - 2),
+                 chr(ord(self.position[0]) - 1) + str(int(self.position[1]) + 2),
+                 chr(ord(self.position[0]) + 1) + str(int(self.position[1]) + 2)]
+            potmoves = [x for x in potmoves if x[1] in '12345678' and '0' not in x[1:] and x[0] in 'abcdefgh']
+            potmoves = [x for x in potmoves if (current_state_raw[x]).owner != self.owner]
+            return potmoves
 
     class Queen(Piece):
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Qun'
-
-        def __str__(self):
-            return super().__str__()
 
         def getpos(self, current_state_raw):
             super().getpos(current_state_raw)
@@ -198,8 +201,6 @@ class Chessgame():
             super().__init__(playerID)
             self.piece = 'Kng'
 
-        def __str__(self):
-            return super().__str__()
 
         def getpos(self, current_state_raw):
             super().getpos(current_state_raw)
@@ -209,6 +210,7 @@ class Chessgame():
             self.getpos(current_state_raw)
             a, b, c, d, e, f, g, h = self.position, self.position, self.position, self.position, self.position, self.position, self.position, self.position
             self.getpos(current_state_raw)
+            move_limits = []
             moves = []
             for i in range(1, 2):
                 a = (chr(ord(self.position[0]) + i) + str(int(self.position[1]) + i)) if a != -1 else -1
@@ -227,23 +229,36 @@ class Chessgame():
                         moves.append(pots.pop(pots.index(x)))
                 for x in pots: moves.append(x)
                 for x in abcd: abcd[abcd.index(x)] = -1 if x not in pots else x
-                a, b, c, d, e, f, g, h = abcd
+                for k, v in current_state_raw.items():
+                    if v.owner != self.owner and v.piece != 'Kng' and v.owner in ['Black', 'White']:
+                        move_limits += v.move_range(current_state_raw)
+                moves = [x for x in pots if x not in move_limits]
+
             return moves
 
-    def _king_check_function(self, turn_ID):
+    def _king_check_function(self):
         # TODO - Implement the rest of the function used to check if a move by either player puts either king into check...
         #  this should cover moves by either king as well as those by other pieces.
+        self.king_check[self.current_player] = []
         for k, v in self._current_state_raw.items():
             print(k, v)
-            if v.owner != turn_ID and v.owner in ['Black', 'White']:
-                self.king_check[turn_ID] += v.move_range(self._current_state_raw)
+            if v.owner != self.current_player and v.owner in ['Black', 'White']:
+                self.king_check[self.current_player] += v.move_range(self._current_state_raw)
+            if v.owner == self.current_player and v.piece == 'Kng':
+                self.king_pos, self.king = k, v
+        print(self.king_check, self.king_pos)
+
+        if self.king_pos in self.king_check[self.current_player]:
+            self.is_in_check = True
+            print(s.__str__(True, self.king_check[self.current_player]))
+        else:
+            self.is_in_check = False
 
     def _position_setup(self):
         '''
         This builds the intial chess board, calling constructors for all the chess pieces as well as a 'Dummy' piece to
         occupy empty spaces
 
-        :return:
         '''
         ### TODO - Update this to keep track of changes to the board
         back_row = lambda owner: [self.Rook(owner), self.Knight(owner), self.Bishop(owner),
@@ -265,15 +280,20 @@ class Chessgame():
                 self._current_state_raw.update(
                     tracker)  # the list of single dictionaries used for  tracking where everything is
                 tracker = {}
-        (self._current_state_raw['g3']).move_range(self._current_state_raw)
 
     def _board_setup(self):
         y = ["a", "b", "c", "d", "e", "f", "g", "h"]
         for i in range(0, len(y)):
             self.board.append([y[i] + str(x) for x in range(1, 9)])
 
-    def piece_selector(self, turn_ID):
-        self.current_piece = None
+    def piece_selector(self):
+
+        if self.pseudoAI == 'yes':
+            choices = [k for k, v in self._current_state_raw.items() if v.owner == self.current_player]
+            select = choices[r.randint(0, len(choices) - 1)]
+            self.current_piece = self._current_state_raw[select]
+            return
+
         while 1 == 1:
 
             select = input('What piece would you like to move ?\n'
@@ -282,7 +302,7 @@ class Chessgame():
             if select not in self._current_state_raw.keys():
                 print('Invalid cordinates')
                 continue
-            elif (self._current_state_raw[select]).owner != turn_ID:
+            elif (self._current_state_raw[select]).owner != self.current_player:
                 print('This is not you piece!')
             else:
                 self.current_piece = self._current_state_raw[select]
@@ -290,7 +310,34 @@ class Chessgame():
 
     def move_selector(self):
         potential_moves = self.current_piece.move_range(self._current_state_raw)
+
+        if self.pseudoAI == 'yes':
+            if self.is_in_check == True:
+                self.current_piece = self.king
+                potential_moves = (self.current_piece).move_range(self._current_state_raw)
+                if potential_moves == []:
+                    exit('Player ' + self.current_player + ' has been forced into checkmate')
+                print(s.__str__(True, potential_moves))
+            else:
+                while potential_moves == []:
+                    self.piece_selector()
+                    potential_moves = (self.current_piece).move_range(self._current_state_raw)
+            print(s.__str__(True, potential_moves))
+
+            move = potential_moves[r.randint(0, len(potential_moves) - 1)]
+            self._current_state_raw[move] = self.current_piece
+            self._current_state_raw[(self.current_piece).position] = self.Dummy()
+            for dict in self.current:
+                for x in dict.keys(): dict[x] = self._current_state_raw[x]
+            print(self)
+            return
+
         while 1 == 1:
+            if self.is_in_check == True:
+                self.current_piece = self.king
+                potential_moves = (self.current_piece).move_range(self._current_state_raw)
+                if potential_moves == []:
+                    exit('Player' + self.current_player + 'Has been forced into checkmate')
             move = input('Select where you would like to move this piece \n'
                          'or imput \'moves\' to show possible moves ')
             if move == '0':
@@ -316,14 +363,40 @@ class Chessgame():
             players = ['White', 'Black']
             for i in range(0, 2):
                 leave = 1
-                current_player = players[i]
-                print('----------' + current_player + '\'s Turn!' + '----------')
+                self.current_player = players[i]
+                print('----------' + self.current_player + '\'s Turn!' + '----------')
                 if leave != 0:
-                    leave = self.piece_selector(current_player)
+                    leave = self.piece_selector()
                 if leave != 0:
                     leave = self.move_selector()
                 elif leave == 0:
                     return
+
+    def _play_game_TESTER_ONLY(self):
+        # TODO impliment actual functionality to exit
+        self.pseudoAI = 'yes'
+        print(self.pseudoAI)
+        turncount = 1
+        players = ['White', 'Black']
+        while turncount <= 150:
+            for i in range(0, 2):
+                leave = 1
+                self.current_player = players[i]
+
+                print('----------' + self.current_player + '\'s Turn!' + '----------')
+                self._king_check_function()
+
+                if self.is_in_check != True:
+                    self.piece_selector()
+                    self.move_selector()
+                else:
+                    print('The' + self.current_player + '\'s king is in check!')
+                    self.move_selector()
+                turncount += 1
+
+
+
+
 
     def __str__(self, showmoves=False, moves=[]):
         '''This just builds the actual board seen by the 'end-user' '''
@@ -369,14 +442,12 @@ class Chessgame():
 
 
 s = Chessgame()
+print(s)
+print((s._current_state_raw['a2']).move_range(s._current_state_raw))
+
 
 # uncomment to run through the entire game
-# s.play_game()
+s._play_game_TESTER_ONLY()
 
 
 # testing stuff
-print(s)
-s._current_state_raw['b2'] = s.Bishop(
-    'White')  # ignore that the output says its a pawn, i just didnt update the for show
-s.current_piece = (s._current_state_raw['b2'])
-s.move_selector()
