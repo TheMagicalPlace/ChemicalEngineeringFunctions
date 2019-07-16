@@ -1,3 +1,7 @@
+from copy import deepcopy
+from random import randint
+
+
 class TTCGame:
 
     def __init__(self):
@@ -42,9 +46,11 @@ class TTCGame:
                 board[3].movetype == board[6].movetype == board[9].movetype != ' ' or \
                 board[1].movetype == board[5].movetype == board[9].movetype != ' ' or \
                 board[3].movetype == board[5].movetype == board[7].movetype != ' '):
-            return self.lastmove + 'is the winner!'
+            print(self.lastmove + ' is the winner!')
+            return (self.lastmove + ' is the winner!')
         elif self.turn == 10:
-            return 'It\'s a tie!'
+            print('It\'s a tie!')
+            return True
         else:
             return []
 
@@ -70,9 +76,35 @@ class TTCGame:
                     self.lastmove = 'O'
                     self.turn += 1
 
+    def playttcai(self):
+        self.lastmove = 'None'
+        while not self._wincheck(self.ttcraws):
             print(self)
+            if self.turn % 2 != 0:
+                print('player X move')
+                move = randint(1, 9)
+                if str(self.ttcraws[move]) != ' ':
+                    continue
+                else:
+                    self.ttcraws[move] = self.Xmove()
+                    self.lastmove = 'X'
+                    self.turn += 1
+            else:
+                print('player O move')
+                move = randint(1, 9)
+                if str(self.ttcraws[move]) != ' ':
+                    continue
+                else:
+                    self.ttcraws[move] = self.Omove()
+                    self.lastmove = 'O'
+                    self.turn += 1
+
+        print(self)
 
     def __str__(self):
+        print()
+        self.ttcdisp = [list(self.ttcraws.values())[:3], list(self.ttcraws.values())[3:6],
+                        list(self.ttcraws.values())[6:10]]
         repboard = ''
         for x in self.ttcdisp:
             repboard += \
@@ -83,6 +115,84 @@ class TTCGame:
         return repboard
 
 
-s = TTCGame()
+class minmaxAI():
+    class Move:
+        def __init__(self):
+            self.movetype = ' '
 
-s.playttc()
+        def __str__(self):
+            return self.movetype
+
+    class Xmove(Move):
+
+        def __init__(self):
+            super().__init__()
+            self.movetype = 'X'
+
+    class Omove(Move):
+
+        def __init__(self):
+            super().__init__()
+            self.movetype = 'O'
+
+    def __init__(self, ttcraws):
+        self.current_state = ttcraws
+        self.node = []
+
+    def all_branches(self, orig, player):
+        node = []
+
+        for i in range(1, 10):
+            ttcraws = deepcopy(orig)
+            if str(ttcraws[i]) != ' ':
+                continue
+            else:
+                ttcraws[i] = self.Xmove() if player else self.Omove()
+                node.append(ttcraws)
+        return node
+
+    def __str__(self):
+        print()
+        for y in self.node:
+            x = [list(y.values())[:3], list(y.values())[3:6],
+                 list(y.values())[6:10]]
+            repboard = ''
+            for x in x:
+                repboard += \
+                    '|¯¯¯¯¯| |¯¯¯¯¯| |¯¯¯¯¯|\n' + \
+                    '|  {0}  | |  {1}  | |  {2}  |\n'.format(x[0], x[1], x[2]) + \
+                    '|_____| |_____| |_____|\n'
+
+            print(repboard)
+        return ' '
+
+    def minMax(self, node, depth, player):
+
+        if not depth:
+            x = randint(1, 10)
+            return x
+        if player:
+            pvalue = []
+            for i in node:
+                nodebranch = self.all_branches(i, player)
+                value = (self.minMax(nodebranch, depth - 1, False))
+                pvalue.append(value)
+                print('Depth =', depth, 'maxing val', pvalue)
+            return max(pvalue)
+        else:
+            allvalue = []
+            for i in node:
+                nodebranch = self.all_branches(i, player)
+                value = (self.minMax(nodebranch, depth - 1, True))
+                allvalue.append((value))
+                print('Depth =', depth, 'min val', allvalue)
+            return min(allvalue)
+
+s = TTCGame()
+print(s.ttcraws)
+g = minmaxAI(s.ttcraws)
+
+if not 0:
+    print('eee')
+
+print(g.minMax([s.ttcraws], 5, True))
