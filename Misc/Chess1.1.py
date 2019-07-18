@@ -1,22 +1,28 @@
 from colorama import init, Fore, Back, Style
 init(autoreset=True)
-import time
 import random as r
+from collections import defaultdict
+import copy
+
 
 class Chessgame():
     Names = ['Rook', 'Knight', 'Bishop',
              'Queen', 'King', 'Pawn']
 
-    def __init__(self):
+    def __init__(self, isAI):
+        self.isAI = isAI
         self.board = []
         self.board_state = []
         self.current = []
         self._current_state_raw = {}
-        self._board_setup()  # sets up the starting board
-        self._position_setup()  # initiallizes the chess piece objects
-        self.king_check = {'Black': [], 'White': []}
-        self.turn_count = 0
-        self.pseudoai = 'no'
+        self.setup()
+
+    def setup(self):
+        if self.isAI == False:
+            self._board_setup()  # sets up the starting board
+            self._position_setup()  # initiallizes the chess piece objects
+            self.king_check = {'Black': [], 'White': []}
+            self.turn_count = 0
 
     class Dummy():
 
@@ -28,6 +34,7 @@ class Chessgame():
         def __init__(self):
             self.owner = 'None'
             self.piece = "Not a Piece"
+            self.value = 0
         def __str__(self):
             return ' '
 
@@ -43,6 +50,7 @@ class Chessgame():
         def __init__(self, playerID):
             self.owner = playerID
             self.piece = 'Undef'
+            self.value = 0
 
         def __str__(self):
             return self.piece + ' '  # self.owner + self.piece
@@ -54,43 +62,45 @@ class Chessgame():
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Pwn'
+            self.value = 1
 
         def move_range(self, current_state_raw, is_king_check=False):
+            foreward = []
             if self.owner == 'Black':
-                foreward = chr(ord(self.position[0]) - 1) + self.position[1]
-                if foreward[0] not in 'abcdefgh' or foreward[1] not in '12345678' \
-                        or (current_state_raw[foreward]).owner != 'None':
-                    foreward = -1
-                avbmove = foreward if foreward != -1 else ['00']
+                foreward = [chr(ord(self.position[0]) - 1) + self.position[1]]
+                if self.position[0] == 'g': foreward.append(chr(ord(self.position[0]) - 2) + self.position[1])
+
+                foreward = [x for x in foreward if x[0] in 'abcdefgh' and x[1] in '12345678'
+                            and (current_state_raw[x]).owner == 'None']
                 potatck = [chr(ord(self.position[0]) - 1) + str(int(self.position[1]) + 1),
                            chr(ord(self.position[0]) - 1) + str(int(self.position[1]) - 1)]
+                [foreward.append(x) for x in potatck if x[0] in 'abcdefgh' and x[1] in '12345678' and
+                 (current_state_raw[x]).owner == 'White']
             if self.owner == 'White':
-                foreward = chr(ord(self.position[0]) + 1) + self.position[1]
-                if foreward[0] not in 'abcdefgh' or foreward[1] not in '12345678' \
-                        or (current_state_raw[foreward]).owner != 'None':
-                    foreward = -1
-                avbmove = foreward if foreward != -1 else ['00']
+                foreward = [chr(ord(self.position[0]) + 1) + self.position[1]]
+                if self.position[0] == 'b': foreward.append(chr(ord(self.position[0]) + 2) + self.position[1])
+                foreward = [x for x in foreward if x[0] in 'abcdefgh' and x[1] in '12345678' and
+                            (current_state_raw[x]).owner == 'None']
                 potatck = [chr(ord(self.position[0]) + 1) + str(int(self.position[1]) + 1),
                            chr(ord(self.position[0]) + 1) + str(int(self.position[1]) - 1)]
-            if is_king_check == True:
+                [foreward.append(x) for x in potatck if x[0] in 'abcdefgh' and x[1] in '12345678' and
+                 (current_state_raw[x]).owner == 'Black']
+            if is_king_check:
                 return potatck
             else:
-                potatck = [p for p in potatck if p[0] in 'abcdefgh' and p[1] in '12345678']
-                potatck = [p for p in potatck if
-                       (current_state_raw[p]).owner != self.owner and (current_state_raw[p]).owner != 'None']
-                if avbmove != ['00']: potatck.append(avbmove)
-
-                return potatck
+                return foreward
 
     class Rook(Piece):
+
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Twr'
-
+            self.value = 5
         def move_range(self, current_state_raw, is_king_check=False):
             moves = []
             e, f, g, h = self.position, self.position, self.position, self.position
             for i in range(1, 8):
+                if e == f == g == h == -1: return moves
                 e = (chr(ord(self.position[0]) + i) + str(int(self.position[1]))) if e != -1 else -1
                 f = (chr(ord(self.position[0]) - i) + str(int(self.position[1]))) if f != -1 else -1
                 g = (chr(ord(self.position[0])) + str(int(self.position[1]) - i)) if g != -1 else -1
@@ -113,6 +123,7 @@ class Chessgame():
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Bsp'
+            self.value = 3
 
         def move_range(self, current_state_raw, is_king_check=False):
             a, b, c, d = self.position, self.position, self.position, self.position
@@ -141,6 +152,7 @@ class Chessgame():
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Knt'
+            self.value = 3
 
         def move_range(self, current_state_raw, *args):
             potmoves = \
@@ -160,6 +172,7 @@ class Chessgame():
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Qun'
+            self.value = 8
 
         def move_range(self, current_state_raw, is_king_check=False):
             a, b, c, d, e, f, g, h = self.position, self.position, self.position, self.position, self.position, self.position, self.position, self.position
@@ -194,10 +207,9 @@ class Chessgame():
         def __init__(self, playerID):
             super().__init__(playerID)
             self.piece = 'Kng'
-
+            self.value = 10000
         def move_range(self, current_state_raw, king_check=False):
             a, b, c, d, e, f, g, h = self.position, self.position, self.position, self.position, self.position, self.position, self.position, self.position
-            move_limits = []
             moves = []
             for i in range(1, 2):
                 a = (chr(ord(self.position[0]) + i) + str(int(self.position[1]) + i)) if a != -1 else -1
@@ -213,8 +225,6 @@ class Chessgame():
                 pots = [x for x in pots if (current_state_raw[x]).owner != self.owner]
                 for x in pots: moves.append(x)
                 return moves
-
-            return moves
 
     def _king_check_function(self):
 
@@ -350,6 +360,7 @@ class Chessgame():
                     self._current_state_raw[(self.current_piece).position] = self.Dummy()
                     for dict in self.current:
                         for x in dict.keys(): dict[x] = self._current_state_raw[x]
+
                     print(self)
                     return
                     # this will likely be how changes are incorporated
@@ -371,6 +382,11 @@ class Chessgame():
                     self.piece_selector() if not leave else leave
                     self.move_selector() if not leave else leave
 
+    def print_moves(self, moves):
+        print('\n ________________\n| Avalible Moves |\n ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯\n' +
+              "".join([str(k) + 'at ' + str(k.position) + ' --> ' + ", ".join(v) +
+                       '\n' for k, v in moves.items()]))
+
     def _play_game_TESTER_ONLY(self):
         self.pseudoAI = 'yes'
         turncount = 0
@@ -380,14 +396,20 @@ class Chessgame():
         while turncount <= 150 and not leave:
             i = -i
             turncount += 1
-                self.current_player = players[i]
-
-            #print('----------' + self.current_player + '\'s Turn!' + '----------')
-                self._king_check_function()
-            if self.is_in_check:
-                # print('\n-----The ' + self.current_player + 'king is in check!-----\n')
-                leave = self.move_selector()
+            self.current_player = players[i]
+            print(self)
+            if self.current_player == 'White':
+                csw = self._current_state_raw
+                e = AlphaBeta().alphabeta(csw, 3, True, -10000000000, 10000000000)
+                self._current_state_raw.update(e)
+                for dict in self.current:
+                    for x in dict.keys(): dict[x] = self._current_state_raw[x]
             else:
+                self._king_check_function()
+                if self.is_in_check:
+                    # print('\n-----The ' + self.current_player + 'king is in check!-----\n')
+                    leave = self.move_selector()
+                else:
                     self.piece_selector()
                     self.move_selector()
         winner = players[-i] if leave else 'None'
@@ -435,8 +457,77 @@ class Chessgame():
         return '\n' + rep_board + '\n'
 
 
+class AlphaBeta(Chessgame):
+
+    def __init__(self):
+        self.maxdepth = 6
+        self.AIcolor = 'White'
+        super().__init__(isAI=True)
+        self.node_value_pairs = {}
+        self.branch = defaultdict(list)
+
+    def alphabeta(self, node, depth, maxing_player, alpha, beta):
+        if depth > self.maxdepth: depth = self.maxdepth
+        print(self.branch)
+        if depth == 0:
+            return self.node_evaluation_heuristic(node)
+        if maxing_player:
+            value = -100000
+            subnodes = self.child_node_finder(node, maxing_player)
+            for nodes in subnodes:
+                self.branch[depth].append(self.alphabeta(nodes, depth - 1, False, alpha, beta))
+                value = max(value, self.alphabeta(nodes, depth - 1, False, alpha, beta))
+                alpha = max(alpha, value)
+                self.node_value_pairs[value] = nodes
+                if alpha >= beta:
+                    return value
+            return value
+        else:
+            value = 100000
+            subnodes = self.child_node_finder(node, maxing_player)
+            for nodes in subnodes:
+                self.branch[depth].append(self.alphabeta(nodes, depth - 1, True, alpha, beta))
+                value = min(value, self.alphabeta(nodes, depth - 1, True, alpha, beta))
+                beta = min(beta, value)
+                if alpha >= beta:
+                    return value
+            return value
+
+    def node_evaluation_heuristic(self, node):
+        value = 1
+        for _, piece in node.items():
+            value += piece.value if piece.owner == 'White' else -piece.value
+        return value
+
+    def child_node_finder(self, node, maxing_player):
+        update = copy.copy(node)
+        for dict in self.current:
+            for x in dict.keys(): dict[x] = update[x]
+        if maxing_player:
+            self.AIcolor = 'White'
+        else:
+            self.AIcolor = 'Black'
+        child_nodes = []
+        moves = defaultdict(list)
+        for piece in node.values():
+            if piece.owner == self.AIcolor:
+                if piece.move_range(node) != []:
+                    [moves[piece].append(x) for x in piece.move_range(node)]
+        for piece, moves in moves.items():
+            for move in moves:
+                workingboard = copy.copy(node)
+                workingboard[piece.position] = self.Dummy()
+                workingboard[move] = piece
+                child_nodes.append(workingboard)
+        return child_nodes
 
 
+s = Chessgame(False)
+e = AlphaBeta()
+g = e.alphabeta(s._current_state_raw, 4, True, -100000, 100000)
+print(g)
+
+'''
 # testing stuff
 i = 0
 z = []
@@ -451,6 +542,7 @@ while i < 10000:
     runtime = time.time() - inittime
     totaltime = time.time() - timezero
     rt = time.gmtime(runtime)
-    print(rt, runtime, totaltime)
+    print(rt, runtime, totaltime,i)
 
 print(z)
+'''

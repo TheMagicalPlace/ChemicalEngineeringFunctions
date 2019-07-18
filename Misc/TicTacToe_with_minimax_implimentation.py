@@ -85,7 +85,7 @@ class TTCGame:
             if id is not None: self.gameid[id].append(str(self))
             if self.turn % 2 != 0:
                 # print('player X move')
-                nextmove = self.ai(self.ttcraws, 5, True, -1000, 1000)
+                nextmove = self.ai(self.ttcraws, 4, True, -1000, 1000)
                 self.ttcraws.update(nextmove)
                 self.lastmove = 'X'
                 self.turn +=1
@@ -164,69 +164,49 @@ class minmaxAI():
         self.branch = defaultdict(list)
         self.setflag = False
         self.node_value_pairs = {}
-        self.depthlimit = 5
+        self.depthlimit = 3
 
     def _wincheck(self, board):
 
-        board = [[board[1].movetype, board[2].movetype, board[3].movetype],
-                 [board[4].movetype, board[5].movetype, board[6].movetype],
-                 [board[7].movetype, board[8].movetype, board[9].movetype]]
+        board = [tuple([board[1].movetype, board[2].movetype, board[3].movetype]),
+                 tuple([board[4].movetype, board[5].movetype, board[6].movetype]),
+                 tuple([board[7].movetype, board[8].movetype, board[9].movetype])]
         value = 0
-
+        diag = tuple([x for y in board for x in y])
+        check = [('O', 'O', ' '), ('O', ' ', 'O'), (' ', 'O', 'O')]
         for row in board:
             if set(row) == set('X'):
                 value += 1000
             elif set(row) == set('O'):
-                value -= 1000
-            # elif ('X' in row) and ('O' in row): value -=10
-        diag = [x for y in board for x in y]
+                value -= 10000
+            elif 'O' in row and 'X' not in row:
+                value += 10
+                if row in check: return -10000
+
         for row in [diag[0:9:4], diag[2:7:2]]:
             if set(row) == set('X'):
                 value += 1000
             elif set(row) == set('O'):
-                value -= 1000
-            # elif ('X' in row) and ('O' in row): value -= 10
+                value -= 10000
+            elif 'O' in row and 'X' not in row:
+                value += 10
+                if row in check: return -10000
+
         for row in zip(*board):
             if set(row) == set('X'):
                 value += 1000
             elif set(row) == set('O'):
-                value -= 1000
-            # elif ('X' in row) and ('O' in row): value -=10
+                value -= 10000
+            elif 'O' in row and 'X' not in row:
+                value += 10
+                if row in check:
+                    return -10000
+            elif 'O' in row and 'X' not in row:
+                value += 10
+                if row in check:
+                    return -10000
+        if ' ' not in diag: return -10
         return value
-
-    '''
-        if ((board[1]).movetype == (board[2]).movetype == (board[3]).movetype =='X' != ' ' or \
-                (board[4]).movetype == (board[5]).movetype == (board[6]).movetype =='X' != ' ' or \
-                (board[7]).movetype == (board[8]).movetype == (board[9]).movetype =='X' != ' ' or \
-                (board[1]).movetype == (board[4]).movetype == (board[7]).movetype =='X' != ' ' or \
-                (board[2]).movetype == (board[5]).movetype == (board[8]).movetype =='X' != ' ' or \
-                (board[3]).movetype == (board[6]).movetype == (board[9]).movetype =='X' != ' ' or \
-                (board[1]).movetype == (board[5]).movetype == (board[9]).movetype =='X' != ' ' or \
-                (board[3]).movetype == (board[5]).movetype == (board[7]).movetype =='X' != ' '):
-                return 'X'
-        elif ((board[1]).movetype == (board[2]).movetype == (board[3]).movetype =='O' != ' ' or \
-            (board[4]).movetype == (board[5]).movetype == (board[6]).movetype =='O'!= ' ' or \
-            (board[7]).movetype == (board[8]).movetype == (board[9]).movetype =='O' != ' ' or \
-            (board[1]).movetype == (board[4]).movetype == (board[7]).movetype =='O'!= ' ' or \
-            (board[2]).movetype == (board[5]).movetype == (board[8]).movetype =='O' != ' ' or \
-            (board[3]).movetype == (board[6]).movetype == (board[9]).movetype =='O' != ' ' or \
-            (board[1]).movetype == (board[5]).movetype == (board[9]).movetype =='O'!= ' ' or \
-            (board[3]).movetype == (board[5]).movetype == (board[7]).movetype =='O' != ' ') :
-                return 'O'
-        elif [(board[1]).movetype(board[2]).movetype,(board[3]).movetype] == 'O' and 'X') or \
-            (board[4]).movetype == (board[5]).movetype == (board[6]).movetype =='O'!= ' ' or \
-            (board[7]).movetype == (board[8]).movetype == (board[9]).movetype =='O' != ' ' or \
-            (board[1]).movetype == (board[4]).movetype == (board[7]).movetype =='O'!= ' ' or \
-            (board[2]).movetype == (board[5]).movetype == (board[8]).movetype =='O' != ' ' or \
-            (board[3]).movetype == (board[6]).movetype == (board[9]).movetype =='O' != ' ' or \
-            (board[1]).movetype == (board[5]).movetype == (board[9]).movetype =='O'!= ' ' or \
-            (board[3]).movetype == (board[5]).movetype == (board[7]).movetype =='O' != ' ') :
-                print('memememe')
-        elif ' ' not in tiecheck:
-            print('yeet')
-            return -10
-        else: return 0
-    '''
 
     def minMax(self, node, depth, player, *args):
         maxdepth = self.depthlimit
@@ -324,19 +304,3 @@ for i in range(1, 101):
 totaltime = time.time() - timezero
 print(totaltime)
 
-timezero = time.time()
-xcount, ocount, tiecount = 0, 0, 0
-
-gamedir = defaultdict(list)
-
-for i in range(1, 101):
-    s = TTCGame(minmaxAI().minMax)
-    winner, gameid = s.playttcai(i)
-    gamedir.update(gameid)
-    if winner == 'X': xcount += 1
-    if winner == 'O': ocount += 1
-    if winner == 'Tie': tiecount += 1
-    print('Game #', i, ' Winner: ', winner)
-    print('X: ', xcount, 'O: ', ocount, 'Tie: ', tiecount)
-totaltime = time.time() - timezero
-print(totaltime)
