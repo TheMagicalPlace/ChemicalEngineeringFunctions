@@ -470,31 +470,36 @@ class AlphaBeta(Chessgame):
         if depth > self.maxdepth: depth = self.maxdepth
         print(self.branch)
         if depth == 0:
-            return self.node_evaluation_heuristic(node)
+            return self.node_evaluation_heuristic(node),node
         if maxing_player:
             value = -100000
             subnodes = self.child_node_finder(node, maxing_player)
             for nodes in subnodes:
                 self.branch[depth].append(self.alphabeta(nodes, depth - 1, False, alpha, beta))
-                value = max(value, self.alphabeta(nodes, depth - 1, False, alpha, beta))
+                val,_ = self.alphabeta(nodes, depth - 1, False, alpha, beta)
+                value = max(value,val)
                 alpha = max(alpha, value)
                 self.node_value_pairs[value] = nodes
                 if alpha >= beta:
-                    return value
-            return value
+                    break
+                else:
+                    return value,self.node_value_pairs[value]
         else:
             value = 100000
             subnodes = self.child_node_finder(node, maxing_player)
             for nodes in subnodes:
                 self.branch[depth].append(self.alphabeta(nodes, depth - 1, True, alpha, beta))
-                value = min(value, self.alphabeta(nodes, depth - 1, True, alpha, beta))
+                val,__ = self.alphabeta(nodes, depth - 1, True, alpha, beta)
+                value = min(value, val)
                 beta = min(beta, value)
+                self.node_value_pairs[value] = nodes
                 if alpha >= beta:
-                    return value
-            return value
+                    break
+                else:
+                    return value,self.node_value_pairs[value]
 
     def node_evaluation_heuristic(self, node):
-        value = 1
+        value = r.randint(-3,3)
         for _, piece in node.items():
             value += piece.value if piece.owner == 'White' else -piece.value
         return value
@@ -503,6 +508,7 @@ class AlphaBeta(Chessgame):
         update = copy.copy(node)
         for dict in self.current:
             for x in dict.keys(): dict[x] = update[x]
+
         if maxing_player:
             self.AIcolor = 'White'
         else:
@@ -519,12 +525,13 @@ class AlphaBeta(Chessgame):
                 workingboard[piece.position] = self.Dummy()
                 workingboard[move] = piece
                 child_nodes.append(workingboard)
+                print(self.__str__(True, moves))
         return child_nodes
 
 
 s = Chessgame(False)
 e = AlphaBeta()
-g = e.alphabeta(s._current_state_raw, 4, True, -100000, 100000)
+_,g=e.alphabeta(s._current_state_raw, 4, True, -100000, 100000)
 print(g)
 
 '''
