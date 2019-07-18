@@ -1,8 +1,8 @@
-from colorama import init, Fore, Back, Style
-init(autoreset=True)
+import copy
 import random as r
 from collections import defaultdict
-import copy
+
+from colorama import Fore, Back, Style
 
 
 class Chessgame():
@@ -13,7 +13,7 @@ class Chessgame():
         self.isAI = isAI
         self.board = []
         self.board_state = []
-        self.current = []
+        self.current = [[], [], []]
         self._current_state_raw = {}
         self.setup()
 
@@ -259,18 +259,30 @@ class Chessgame():
         tracker = {}
         for (a, b) in zip([xx for x in self.board for xx in x], [yy for y in self.board_state for yy in y]):
             tracker[a] = b
-
+            # TODO fix the updater so it can properly print out strings
             if a in list(zip(*self.board))[-1]:
-                self.current.append(tracker)  # The list of dictionaries used in the __Str__ method
                 self._current_state_raw.update(
                     tracker)  # the list of single dictionaries used for  tracking where everything is
                 tracker = {}
             [v.getpos(self._current_state_raw) for k, v in self._current_state_raw.items()]
+        self.get_current_state(self._current_state_raw)
 
     def _board_setup(self):
         y = ["a", "b", "c", "d", "e", "f", "g", "h"]
         for i in range(0, len(y)):
             self.board.append([y[i] + str(x) for x in range(1, 9)])
+
+    def get_current_state(self, raw_state):
+        k, v = [k for k, v in raw_state.items()], [v for k, v in raw_state.items()]
+        for i in range(0, 9):
+
+            if i in range(0, 3):
+                self.current[0].append({k[i]: v[i]})
+            elif i in range(3, 5):
+                self.current[1].append({k[i]: v[i]})
+            else:
+                self.current[2].append({k[i]: v[i]})
+
 
     def piece_selector(self):
 
@@ -397,7 +409,7 @@ class Chessgame():
             i = -i
             turncount += 1
             self.current_player = players[i]
-            print(self)
+            #print(self)
             if self.current_player == 'White':
                 csw = self._current_state_raw
                 e = AlphaBeta().alphabeta(csw, 3, True, -10000000000, 10000000000)
@@ -462,13 +474,17 @@ class AlphaBeta(Chessgame):
     def __init__(self):
         self.maxdepth = 6
         self.AIcolor = 'White'
-        super().__init__(isAI=True)
+        super().__init__(isAI=False)
         self.node_value_pairs = {}
+
+        # For debugging only - allows for the print of all the node vaues at each depth as well as a printout of
+        # each potential board state found
         self.branch = defaultdict(list)
+        self.is_in_check = False
 
     def alphabeta(self, node, depth, maxing_player, alpha, beta):
         if depth > self.maxdepth: depth = self.maxdepth
-        print(self.branch)
+        #print(self.branch)
         if depth == 0:
             return self.node_evaluation_heuristic(node),node
         if maxing_player:
@@ -505,34 +521,42 @@ class AlphaBeta(Chessgame):
         return value
 
     def child_node_finder(self, node, maxing_player):
-        update = copy.copy(node)
-        for dict in self.current:
-            for x in dict.keys(): dict[x] = update[x]
-
+        self.get_current_state(node)
+        print(self)
         if maxing_player:
             self.AIcolor = 'White'
         else:
             self.AIcolor = 'Black'
         child_nodes = []
         moves = defaultdict(list)
+
         for piece in node.values():
             if piece.owner == self.AIcolor:
                 if piece.move_range(node) != []:
                     [moves[piece].append(x) for x in piece.move_range(node)]
+                    #self.print_moves(moves)
+
         for piece, moves in moves.items():
+            self.current_piece = piece
+            # print(self.__str__(True, moves))
+            piece.getpos(node)
             for move in moves:
-                workingboard = copy.copy(node)
-                workingboard[piece.position] = self.Dummy()
+                workingboard = copy.deepcopy(node)
                 workingboard[move] = piece
+                pos = piece.position
+                del workingboard[pos]
+                workingboard[pos] = self.Dummy()
+                workingboard[move] = piece
+                self.get_current_state(workingboard)
+                print(self)
                 child_nodes.append(workingboard)
-                print(self.__str__(True, moves))
         return child_nodes
 
 
 s = Chessgame(False)
 e = AlphaBeta()
 _,g=e.alphabeta(s._current_state_raw, 4, True, -100000, 100000)
-print(g)
+
 
 '''
 # testing stuff
