@@ -13,7 +13,7 @@ class Chessgame():
         self.isAI = isAI
         self.board = []
         self.board_state = []
-        self.current = [[], [], []]
+        self.current = []
         self._current_state_raw = {}
         self.setup()
 
@@ -273,15 +273,16 @@ class Chessgame():
             self.board.append([y[i] + str(x) for x in range(1, 9)])
 
     def get_current_state(self, raw_state):
-        k, v = [k for k, v in raw_state.items()], [v for k, v in raw_state.items()]
-        for i in range(0, 9):
 
-            if i in range(0, 3):
-                self.current[0].append({k[i]: v[i]})
-            elif i in range(3, 5):
-                self.current[1].append({k[i]: v[i]})
-            else:
-                self.current[2].append({k[i]: v[i]})
+        k, v = [k for k, v in raw_state.items()], [v for k, v in raw_state.items()]
+        self.current = []
+        row = {}
+        for i in range(0, len(k)):
+            row[k[i]] = v[i]
+            if len(row) == 8:
+                self.current.append(row)
+                row = {}
+
 
 
     def piece_selector(self):
@@ -472,7 +473,7 @@ class Chessgame():
 class AlphaBeta(Chessgame):
 
     def __init__(self):
-        self.maxdepth = 6
+        self.maxdepth = 4
         self.AIcolor = 'White'
         super().__init__(isAI=False)
         self.node_value_pairs = {}
@@ -510,19 +511,25 @@ class AlphaBeta(Chessgame):
                 beta = min(beta, value)
                 self.node_value_pairs[value] = nodes
                 if alpha >= beta:
-                    break
-                else:
                     return value,self.node_value_pairs[value]
-
+            return value, self.node_value_pairs[value]
     def node_evaluation_heuristic(self, node):
-        value = r.randint(-3,3)
+        value = 0
+        for piece in node.values():
+            if piece.owner == 'White':
+                if piece.move_range(node) != []:
+                    value += len(piece.move_range(node))
+            if piece.owner == 'Black':
+                if piece.move_range(node) != []:
+                    value -= len(piece.move_range(node))
+        value = value//10
         for _, piece in node.items():
             value += piece.value if piece.owner == 'White' else -piece.value
         return value
 
     def child_node_finder(self, node, maxing_player):
         self.get_current_state(node)
-        print(self)
+        #print(self)
         if maxing_player:
             self.AIcolor = 'White'
         else:
@@ -538,26 +545,24 @@ class AlphaBeta(Chessgame):
 
         for piece, moves in moves.items():
             self.current_piece = piece
-            # print(self.__str__(True, moves))
+            print(self.__str__(True, moves))
             piece.getpos(node)
             for move in moves:
                 workingboard = copy.deepcopy(node)
-                workingboard[move] = piece
                 pos = piece.position
-                del workingboard[pos]
                 workingboard[pos] = self.Dummy()
                 workingboard[move] = piece
                 self.get_current_state(workingboard)
-                print(self)
+                #print(self)
                 child_nodes.append(workingboard)
         return child_nodes
 
 
 s = Chessgame(False)
 e = AlphaBeta()
-_,g=e.alphabeta(s._current_state_raw, 4, True, -100000, 100000)
-
-
+_,g=e.alphabeta(s._current_state_raw, 4,True, -100000, 100000)
+e.get_current_state(g)
+print(e)
 '''
 # testing stuff
 i = 0
