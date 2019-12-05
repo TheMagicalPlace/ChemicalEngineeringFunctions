@@ -53,7 +53,45 @@ class BatchReactorABC():
         self.species_data = species_data
         self.N = sum(species_data)
         self.Na0 = species_data[0]
+        self.stoicheometry = stoicheometry
 
+    def species_concentration(self, conversion,volume=None):
+
+        Cval = 100
+        C = f'{Cval}'
+        K = f'{Cval} / 10'
+        sig = self.stoicheometry
+
+        # Ca0*(b/a-X*(s_b/s_a))
+        if  not volume:
+            volume = 100
+        for i in range(0, len(self.species_data)):
+            if self.stoicheometry[i] > 0:
+                # ...* (Na0*(Ni0/Na0-(a/i)*x)/volume)**i
+
+                # C = ...*(Na0*(1-X)/volume
+                C+= f"*({self.Na0/volume}*({self.species_data[i]/self.species_data[0]}-{sig[i] / sig[0]}*x))**{abs(self.stoicheometry[i])}"
+            else:
+                K+= f"*({self.Na0/volume}*({self.species_data[i]/self.species_data[0]}-{sig[i] / sig[0]}*x))**{abs(self.stoicheometry[i])}"
+
+
+        new_species_data = list(range(len(self.species_data)))
+        for i,species in enumerate(self.species_data):
+            new_species_data[i] = self.Na0*(self.species_data[i]/self.species_data[0]-sig[i]/sig[0]*conversion/100)
+        self.species_data = new_species_data
+
+        x = conversion/100
+        self.rA = -(eval(C)-eval(K))
+        Z = f'-({C}-{K})'
+
+
+        Ntime = [];Nsize = []
+        #for vol in [20,40,80,160,320,640,1280]:
+        #    Ntime.append(self.time_to_conversion(conversion/100,volume=vol))
+        #    Nsize.append(self.sizing(conversion=conversion/100, duration=vol))
+
+
+        #return new_species_data,intgr.quad(self.test, 0, conversion/100, args=Z),self.rA,Ntime,Nsize
 
 class BatchReactorAnalysis(BatchReactorABC):
 
@@ -151,7 +189,10 @@ class BatchReactorAnalysis(BatchReactorABC):
     def sizing(self, conversion, duration):
         X = conversion # % conversion
         Na0 = self.Na0 # moles of species 0
+
         dX = intgr.quad(lambda x:x, 0, X)[0] # intergral d/dX
+        Volume = -Na0 * dX / (duration * self.rA)
+        self.species_concentration(conversion,Volume)
         Volume = -Na0 * dX / (duration * self.rA)
         return Volume
 
@@ -159,6 +200,7 @@ class BatchReactorAnalysis(BatchReactorABC):
 
         X, V, Na0 = conversion, volume, self.Na0
         dX = intgr.quad(lambda x:x, 0, X)[0]
+        self.species_concentration(conversion,volume)
         time = -Na0 * dX /(self.rA * V)
         print(time,V,self.rA,dX,Na0)
         return time
@@ -276,42 +318,7 @@ class BatchReactorODE(BatchReactorABC):
         plt.show()
         print('')
 
-    def species_concentration(self, conversion):
-        conversiondelta = self.conversiondelta
-        Cval = 100
-        C = f'{Cval}'
-        K = f'{Cval} / 10'
-        sig = self.stoicheometry
 
-        # Ca0*(b/a-X*(s_b/s_a))
-
-        for i in range(0, len(self.species_data)):
-            if self.stoicheometry[i] > 0:
-                # ...* (Na0*(Ni0/Na0-(a/i)*x)/volume)**i
-
-                # C = ...*(Na0*(1-X)/volume
-                C+= f"*({self.Na0/self.volume}*({self.ratios[i]}-{sig[i] / sig[0]}*x))**{abs(self.stoicheometry[i])}"
-            else:
-                K+= f"*({self.Na0/self.volume}*({self.ratios[i]}-{sig[i] / sig[0]}*x))**{abs(self.stoicheometry[i])}"
-
-
-        new_species_data = list(range(len(self.species_data)))
-        for i,species in enumerate(self.species_data):
-            new_species_data[i] = self.Na0*(self.ratios[i]-sig[i]/sig[0]*conversion/100)
-        self.species_data = new_species_data
-
-        x = conversion/100
-        self.rA = -(eval(C)-eval(K))
-        Z = f'-({C}-{K})'
-
-
-        Ntime = [];Nsize = []
-        for vol in [20,40,80,160,320,640,1280]:
-            Ntime.append(self.time_to_conversion(conversion/100,volume=vol))
-            Nsize.append(self.sizing(conversion=conversion/100, duration=vol))
-
-
-        return new_species_data,intgr.quad(self.test, 0, conversion/100, args=Z),self.rA,Ntime,Nsize
 
 class BatchReactorMeta:
     """Initializes the pertinent batch reactor class"""
@@ -326,16 +333,12 @@ if __name__ == '__main__':
     kf = 11
     kr = 1005
     btr = BatchReactorAnalysis(species_data=[50, 100, 50, 10],
-                         stoicheometry=[2, 1, 1, -2],rate_coeffieients=[10, 1, 1, 1],conversion_range=[5,90],run_time_range=[10,1000])
+                         stoicheometry=[2, 1, 1, -2],rate_coeffieients=[10, 1, 1, 1],conversion_range=[10,90],run_time_range=[10,1000])
     btchr = BatchReactorODE( species_data=[50, 50, 50, 50],
                          stoicheometry=[2, 1, 0, -3], k_forward=[kf,kf,None,None],
-                         k_reverse=[None,None,kr,kr],volume=1000)
-    btchr.rate_laws()
-    btchr.solve_ode()
+                         k_reverse=[None,None,kr,kr],volume=700)
+
 if __name__ == '':
-
-
-
 
     btchr = BatchReactor(rxn_rates=[1, 1, 1, 1], species_data=[200, 100,0, 0],
                      stoicheometry=[2, 1, -1, -2], rate_law_constant=1, volume=1000)
