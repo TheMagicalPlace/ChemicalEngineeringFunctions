@@ -5,7 +5,8 @@ from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 from numpy import log10, log2, log,percentile
 from typing import List
-
+from numpy import linspace
+from collections import defaultdict
 class RateLawContainer():
 
     labels = (lab for lab in ('Ca', 'Cb', 'Cc', 'Cd', 'Ce','Cf','Cg'))
@@ -44,16 +45,150 @@ class RateLawContainer():
             if node.generated_by == self.same_level:
                 node.reaction = f'({node.rxn_coefficient / self.rxn_coefficient})*{self.reaction}'
 
-
-
     def __eq__(self, other):
         return self.label == other
+class BatchReactorABC():
+
+    def __init__(self,species_data,stoicheometry):
+        self.species_data = species_data
+        self.N = sum(species_data)
+        self.Na0 = species_data[0]
 
 
-class BatchReactor:
+class BatchReactorAnalysis(BatchReactorABC):
 
-    def __init__(self, rxn_rates, species_data, stoicheometry, volume=None,k_forward : List[int] = None,k_reverse: List[int]=None,layers:List[List[int]]=None):
+    def __init__(self,species_data,stoicheometry,rate_coeffieients,volume : List[int]=None,conversion_range : List[int] = None,run_time_range : List[int] = None):
 
+        super().__init__(species_data,stoicheometry)
+        self.rA = -rate_coeffieients[0]
+
+        if not volume:
+            volume = defaultdict(list)
+            if len(conversion_range) == 1:
+
+                if len(run_time_range) == 1:
+                    volume = self.sizing(conversion_range[0],run_time_range[0])
+                else:
+                    volume = []
+                    run_points = linspace(start=run_time_range[0],stop=run_time_range[1],endpoint=True,num=10)
+                    for run_time in run_points:
+                        volume.append(self.sizing(conversion_range[0],run_time))
+                    self.plot_data(run_points,volume)
+            else:
+                conv_points = linspace(start=conversion_range[0], stop=conversion_range[1], endpoint=True, num=10)
+
+                if len(run_time_range) == 1:
+                    volume = []
+                else:
+                    run_points = linspace(start=run_time_range[0], stop=run_time_range[1], endpoint=True, num=10)
+                for conv in conv_points:
+                    if len(run_time_range)== 1:
+                        volume.append(self.sizing(conv,run_time_range[0]))
+                    else:
+                        for run_time in run_points:
+                            volume[conv].append(self.sizing(conv,run_time))
+                if isinstance(volume,list):
+                    self.plot_data(conv_points, volume)
+                else:
+                    self.plot_data(volume,run_points)
+
+        if not run_time_range:
+            run_time = defaultdict(list)
+            if len(conversion_range) == 1:
+                if len(volume) == 1:
+                    run_time = self.time_to_conversion(conversion_range[0], volume[0])
+                else:
+                    run_time = []
+                    volume_points = linspace(start=volume[0], stop=volume[1], endpoint=True, num=10)
+                    for vol in volume_points:
+                        run_time.append(self.time_to_conversion(conversion_range[0], vol))
+                    self.plot_data(run_time,volume)
+            else:
+                conv_points = linspace(start=conversion_range[0], stop=conversion_range[1], endpoint=True, num=10)
+
+                if len(volume) == 1:
+                    run_time = []
+                else:
+                    volume_points = linspace(start=volume[0], stop=volume[1], endpoint=True, num=10)
+                for conv in conv_points:
+                    if len(volume) == 1:
+                        volume.append(self.time_to_conversion(conv, volume[0]))
+                    else:
+                        for vol in volume_points:
+                            run_time[conv].append(self.time_to_conversion(conv, vol))
+                if isinstance(run_time,list):
+                    self.plot_data(run_time, conv_points)
+                else:
+                    self.plot_data(run_time, volume_points)
+
+        self.run_time_range = run_time_range
+        conversion = None
+        if not conversion_range:
+            conversion = defaultdict(list)
+            if len(run_time_range) == 1:
+                if len(volume) == 1:
+                    conversion = self.get_possible_conversion(volume[0],run_time_range[0])
+                else:
+                    conversion = []
+                    volume_points = linspace(start=volume[0], stop=volume[1], endpoint=True, num=10)
+                    for vol in volume_points:
+                        conversion.append(self.get_possible_conversion( vol,run_time_range[0]))
+            else:
+                run_points = linspace(start=run_time_range[0],stop=run_time_range[1],endpoint=True,num=10)
+
+                if len(volume) == 1:
+                    conversion = []
+                else:
+                    volume_points = linspace(start=volume[0], stop=volume[1], endpoint=True, num=10)
+                for run_time in run_points:
+                    if len(volume) == 1:
+                        conversion.append(self.get_possible_conversion(volume[0],run_time))
+                    else:
+                        for vol in volume_points:
+                            conversion[run_time].append(self.time_to_conversion(vol,run_time))
+        self.conversion_range = conversion if conversion else conversion_range
+
+    def sizing(self, conversion, duration):
+        X = conversion # % conversion
+        Na0 = self.Na0 # moles of species 0
+        dX = intgr.quad(lambda x:x, 0, X)[0] # intergral d/dX
+        Volume = -Na0 * dX / (duration * self.rA)
+        return Volume
+
+    def time_to_conversion(self, conversion, volume):
+
+        X, V, Na0 = conversion, volume, self.Na0
+        dX = intgr.quad(lambda x:x, 0, X)[0]
+        time = -Na0 * dX /(self.rA * V)
+        print(time,V,self.rA,dX,Na0)
+        return time
+
+    def get_possible_conversion(self,volume,duration):
+        t, V, Na0 = duration, volume, self.Na0
+        return duration*self.rA*V/(-Na0)
+
+    def plot_data(self,x,y=None):
+        if isinstance(x,list):
+            fig = plt.figure()
+            ax = fig.subplots(1)
+            ax.scatter(x,y)
+        else:
+            fig = plt.figure()
+            ax,ax2 = fig.subplots(2)
+            for key,value in x.items():
+                print(value)
+                ax.plot(y,value)
+
+                ax2.plot(value,list(x.keys()))
+            ax.legend([f'{str(key)[:2]}' for key in x.keys()])
+            ax2.legend([f'{str(key)[:2]}' for key in x.keys()])
+            plt.show()
+
+class BatchReactorODE(BatchReactorABC):
+
+    def __init__(self, species_data, stoicheometry, volume,k_forward : List[int],k_reverse: List[int],layers:List[List[int]]=None):
+        super().__init__(species_data,stoicheometry)
+        self.volume = volume
         species = []
         j = 0
         if layers and k_forward and k_reverse:
@@ -92,45 +227,15 @@ class BatchReactor:
                             node.generated_by.append(pnode)
             species = react+product
 
-
-        self.rxn_rates = rxn_rates # rection rates for each species
-        self.rA = -rxn_rates[0] # species A is being consumed
-        self.Na0 = species_data[0] # species a molar mass
-        self.ratios = [x/self.Na0 for x in species_data]
-        self.species_data = species_data # initial concentrations
-        self.volume = volume #volume if known
-        self.stoicheometry = stoicheometry #stoicheomerty for the reactions(s)
-        self.last_species = species_data
-        self.conversiondelta = 1
         self.RL_nodes = species
+        self.rate_laws()
+        self.solve_ode()
 
 
 
     def rate_laws(self):
         self.RL_nodes[0].generate_rate_law()
         print(self.RL_nodes)
-
-
-    def conversion_fun(self):
-        return lambda x: x
-
-    def sizing(self, conversion, duration):
-        X = conversion # % conversion
-        Na0 = self.Na0 # moles of species 0
-        dX = intgr.quad(self.conversion_fun(), 0, X)[0] # intergral d/dX
-        Volume = -Na0 * dX / (duration * self.rA)
-        return Volume
-
-    def time_to_conversion(self, conversion, volume):
-
-        X, V, Na0 = conversion, volume, self.Na0
-        dX = intgr.quad(self.conversion_fun(), 0, X)[0]
-        time = -Na0 * dX /(self.rA * V)
-        print(time,V,self.rA,dX,Na0)
-        return time
-
-    def test(self, x, C):
-        return eval(C)
 
     def _time_integral(self):
         Z = {}
@@ -159,7 +264,7 @@ class BatchReactor:
         ivp_fun = self._time_integral()
         C0 = [data/self.volume for data in self.species_data]
 
-        t = solve_ivp(ivp_fun, t_span=(0.0,10000.0), y0=C0, method='RK45', t_eval=None, dense_output=False, events=None,ectorized=False)
+        t = solve_ivp(ivp_fun, t_span=(0.0,1000.0), y0=C0, method='RK45', t_eval=None, dense_output=False, events=None,ectorized=False)
         res = t.y
         N = sum(self.species_data)
         fig = plt.figure()
@@ -170,8 +275,6 @@ class BatchReactor:
         axb.plot(t.t,[(C0[0]-C)/C0[0] for C in res[0]])
         plt.show()
         print('')
-
-
 
     def species_concentration(self, conversion):
         conversiondelta = self.conversiondelta
@@ -210,11 +313,22 @@ class BatchReactor:
 
         return new_species_data,intgr.quad(self.test, 0, conversion/100, args=Z),self.rA,Ntime,Nsize
 
+class BatchReactorMeta:
+    """Initializes the pertinent batch reactor class"""
+
+    def __init__(self, species_data, stoicheometry, rxn_rates=None,conversion_factor :List[int] = None, volume=None, k_forward: List[int] = None,
+                 k_reverse: List[int] = None, layers: List[List[int]] = None):
+        if conversion_factor and not volume:
+            pass
+
+
 if __name__ == '__main__':
-    kf = 1.00
-    kr = 10
-    btchr = BatchReactor(rxn_rates=[1, 1, 1, 1], species_data=[200, 100, 0, 0],
-                         stoicheometry=[2, 1, -1, -2], k_forward=[kf,kf,None,None],
+    kf = 11
+    kr = 1005
+    btr = BatchReactorAnalysis(species_data=[50, 100, 50, 10],
+                         stoicheometry=[2, 1, 1, -2],rate_coeffieients=[10, 1, 1, 1],conversion_range=[5,90],run_time_range=[10,1000])
+    btchr = BatchReactorODE( species_data=[50, 50, 50, 50],
+                         stoicheometry=[2, 1, 0, -3], k_forward=[kf,kf,None,None],
                          k_reverse=[None,None,kr,kr],volume=1000)
     btchr.rate_laws()
     btchr.solve_ode()
