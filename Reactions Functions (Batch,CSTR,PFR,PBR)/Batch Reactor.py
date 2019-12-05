@@ -8,11 +8,16 @@ from typing import List
 from numpy import linspace
 from collections import defaultdict
 class RateLawContainer():
+    """Creates and holds the string-formatted rate law equation for the input species, as well as
+    assigns the species label (i.e Ca,Cb,...) to the node"""
 
-    labels = (lab for lab in ('Ca', 'Cb', 'Cc', 'Cd', 'Ce','Cf','Cg'))
+    # since this is a class variable, it is advances for all instances each time a new node is generated,
+    # making sure each node has a unique identifier
+    labels = (f'C{a}' for a in 'abcdefghijklmnopqrstuvwxyz')
 
 
     def __init__(self,initial_concentration,rxn_coefficient,volume,system_mass,k_forward=None,k_reverse=None):
+        """gets the info for the species, and assigns it a unique label"""
         self.label = next(RateLawContainer.labels)
         self.C0 = initial_concentration
         self.generated_by = []
@@ -24,6 +29,8 @@ class RateLawContainer():
         self.N = system_mass
 
     def generate_rate_law(self):
+        """Created a string representation of the rate law for the nodes species in the form
+        rate of generation of species i = -(rate constant)*(Ci^i-(1/reverse rate constant)*Cj^j*Ck^k)"""
         if self.k_forward:
             base = f'{self.k_forward}*(-1)*(1'
             for node in self.same_level:
@@ -38,17 +45,22 @@ class RateLawContainer():
         self._set_rate_law_ratios()
 
     def _set_rate_law_ratios(self):
+        """assigns rate laws to related species based on molar ratios a/ra = b/rb = c/rc -> rb = (b/a)*ra"""
         for node in self.same_level:
+            # species related in the in the forward rate law (
             if node.generated_by == self.generated_by and node.same_level == self.same_level:
                 node.reaction = f'({node.rxn_coefficient/self.rxn_coefficient})*{self.reaction}'
+
+        # species that produce the current
         for node in self.generated_by:
+
             if node.generated_by == self.same_level:
                 node.reaction = f'({node.rxn_coefficient / self.rxn_coefficient})*{self.reaction}'
 
     def __eq__(self, other):
         return self.label == other
 class BatchReactorABC():
-
+    """Base class for batch reactor classes"""
     def __init__(self,species_data,stoicheometry):
         self.species_data = species_data
         self.N = sum(species_data)
@@ -56,7 +68,7 @@ class BatchReactorABC():
         self.stoicheometry = stoicheometry
 
     def species_concentration(self, conversion,volume=None):
-
+        """"""
         Cval = 100
         C = f'{Cval}'
         K = f'{Cval} / 10'
@@ -94,12 +106,13 @@ class BatchReactorABC():
         #return new_species_data,intgr.quad(self.test, 0, conversion/100, args=Z),self.rA,Ntime,Nsize
 
 class BatchReactorAnalysis(BatchReactorABC):
-
+    """Produces graphical displays for possible design values based on inputted design values"""
     def __init__(self,species_data,stoicheometry,rate_coeffieients,volume : List[int]=None,conversion_range : List[int] = None,run_time_range : List[int] = None):
 
         super().__init__(species_data,stoicheometry)
         self.rA = -rate_coeffieients[0]
 
+        # conversion & batch time specified -> finding volumes that match
         if not volume:
             volume = defaultdict(list)
             if len(conversion_range) == 1:
@@ -129,7 +142,7 @@ class BatchReactorAnalysis(BatchReactorABC):
                     self.plot_data(conv_points, volume)
                 else:
                     self.plot_data(volume,run_points)
-
+        # conversion & volume -> finding batch times that match
         if not run_time_range:
             run_time = defaultdict(list)
             if len(conversion_range) == 1:
@@ -159,8 +172,10 @@ class BatchReactorAnalysis(BatchReactorABC):
                 else:
                     self.plot_data(run_time, volume_points)
 
+
         self.run_time_range = run_time_range
         conversion = None
+        # volumr & batch time specified -> finding conversions that match
         if not conversion_range:
             conversion = defaultdict(list)
             if len(run_time_range) == 1:
@@ -187,6 +202,7 @@ class BatchReactorAnalysis(BatchReactorABC):
         self.conversion_range = conversion if conversion else conversion_range
 
     def sizing(self, conversion, duration):
+        # TODO fix the math here
         X = conversion # % conversion
         Na0 = self.Na0 # moles of species 0
 
@@ -197,7 +213,7 @@ class BatchReactorAnalysis(BatchReactorABC):
         return Volume
 
     def time_to_conversion(self, conversion, volume):
-
+        # TODO fix the math here
         X, V, Na0 = conversion, volume, self.Na0
         dX = intgr.quad(lambda x:x, 0, X)[0]
         self.species_concentration(conversion,volume)
@@ -206,10 +222,12 @@ class BatchReactorAnalysis(BatchReactorABC):
         return time
 
     def get_possible_conversion(self,volume,duration):
+        # TODO fix the math here
         t, V, Na0 = duration, volume, self.Na0
         return duration*self.rA*V/(-Na0)
 
     def plot_data(self,x,y=None):
+        """returns a plot of the analyzed parameter against the specified parameters"""
         if isinstance(x,list):
             fig = plt.figure()
             ax = fig.subplots(1)
@@ -227,12 +245,14 @@ class BatchReactorAnalysis(BatchReactorABC):
             plt.show()
 
 class BatchReactorODE(BatchReactorABC):
-
+    """class for solving an ODE to get species concentrations at a given volume and/or batch time"""
     def __init__(self, species_data, stoicheometry, volume,k_forward : List[int],k_reverse: List[int],layers:List[List[int]]=None):
         super().__init__(species_data,stoicheometry)
         self.volume = volume
         species = []
         j = 0
+
+        # 256-274 just set up the nodes for each species, layers dont work yet
         if layers and k_forward and k_reverse:
             species = [[] for _ in range(len(layers))]
             for i,layer in enumerate(layers):
@@ -276,33 +296,35 @@ class BatchReactorODE(BatchReactorABC):
 
 
     def rate_laws(self):
+        """generates the rate law for Ca"""
         self.RL_nodes[0].generate_rate_law()
         print(self.RL_nodes)
 
     def _time_integral(self):
-        Z = {}
-        K = {}
+        """Sets up and returns the function solved by the ODE solver"""
+
         # Ca + Cb + Cc = Ca0 + Cb0 + Cc0
         labels = ['Ca','Cb','Cc','Cd','Ce']
 
         laws = {}
         for i, c in enumerate(self.RL_nodes):
+            # d(Ci)dt = rate law for species i
             laws[f'd{c.label}dt'] = f'{c.reaction}'
-        print(laws)
 
+        # the actual ODE fuction
         def for_ode(t,C):
             for i,c in enumerate(C):
                 label = labels[i]
                 exec(f'{label} = c')
             C = []
             for name,reaction in laws.items():
-                #exec(f'{name} = None')
-                C.append(eval(reaction))
 
+                C.append(eval(reaction))
             return C
         return for_ode
 
     def solve_ode(self):
+        """Solves the ordinary differential equation across the range given in t_span"""
         ivp_fun = self._time_integral()
         C0 = [data/self.volume for data in self.species_data]
 

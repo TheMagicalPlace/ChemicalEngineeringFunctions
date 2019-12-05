@@ -198,7 +198,7 @@ class CSTRDesigner(CSTRABC,):
 
 if __name__ == '__main__':
     btchr = CSTRDesigner(component_flows=[50, 100,20, 20],
-                         stoicheometry=[2, 1, -1, -2], k_forward=[100,100,None,None], k_reverse=[None,None,10,10])
+                         stoicheometry=[2, 1, -1, -2], k_forward=[100,100,None,None], k_reverse=[None,None,10,10it g])
     #btchr.solve_ode()
     print(btchr.sizing(50))
 
